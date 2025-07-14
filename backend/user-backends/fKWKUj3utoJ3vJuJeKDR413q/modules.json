@@ -1,0 +1,92 @@
+{
+  "mbn": {
+    "fields": {
+      "vncb": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "rEgxAXRHA6KRG3XIoazvQSFX"
+  },
+  "asew": {
+    "fields": {
+      "sdfsdf": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "rEgxAXRHA6KRG3XIoazvQSFX"
+  },
+  "qwe": {
+    "fields": {
+      "fg": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "rEgxAXRHA6KRG3XIoazvQSFX"
+  },
+  "qwewe": {
+    "fields": {
+      "fg": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "rEgxAXRHA6KRG3XIoazvQSFX"
+  },
+  "fd": {
+    "fields": {
+      "fd": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "rEgxAXRHA6KRG3XIoazvQSFX"
+  },
+  "sf": {
+    "fields": {
+      "ew": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "rEgxAXRHA6KRG3XIoazvQSFX"
+  }
+}

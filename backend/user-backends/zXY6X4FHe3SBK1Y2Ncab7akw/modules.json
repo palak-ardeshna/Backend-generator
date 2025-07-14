@@ -1,0 +1,17 @@
+{
+  "bnm": {
+    "fields": {
+      "vbnm": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "m40ed2KNXRI2ZW1UaIm9JQ3k"
+  }
+}
