@@ -1,0 +1,17 @@
+{
+  "er": {
+    "fields": {
+      "errrr": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "Gtr4Par3t69yvNIUHtiq8q9s"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "abc": {
+    "fields": {
+      "abc": {
+        "type": "String"
+      }
+    },
+    "apis": {
+      "post": true,
+      "get": true,
+      "getById": true,
+      "put": true,
+      "delete": true
+    },
+    "userId": "5W8MwqYjbIWn1vfz64RpgXpU"
+  }
+}

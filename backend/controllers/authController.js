@@ -16,7 +16,7 @@ const loginSchema = Joi.object({
   password: Joi.string().min(6).required(),
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123456789';
 
 export const register = async (req, res) => {
   try {

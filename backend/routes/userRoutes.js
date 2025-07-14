@@ -5,7 +5,7 @@ import {
   updateUser,
   deleteUser,
 } from '../controllers/userController.js';
-import { protect, admin } from '../middleware/authMiddleware.js';
+import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware.js';
 import express from 'express';
 
 const router = express.Router();
@@ -14,12 +14,12 @@ const router = express.Router();
 // None for users - all require authentication
 
 // Protected routes (require login)
-router.get('/', protect, getAllUsers);
-router.get('/:id', protect, getUserById);
+router.get('/', authMiddleware, getAllUsers);
+router.get('/:id', authMiddleware, getUserById);
 
 // Admin only routes
-router.post('/', protect, admin, createUser);
-router.put('/:id', protect, admin, updateUser);
-router.delete('/:id', protect, admin, deleteUser);
+router.post('/', authMiddleware, adminMiddleware, createUser);
+router.put('/:id', authMiddleware, adminMiddleware, updateUser);
+router.delete('/:id', authMiddleware, adminMiddleware, deleteUser);
 
 export default router;

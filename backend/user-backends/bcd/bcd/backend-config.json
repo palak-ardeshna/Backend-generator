@@ -1,0 +1,38 @@
+{
+  "name": "bcd",
+  "description": "bcd",
+  "dbType": "mysql",
+  "dbConfig": {
+    "host": "localhost",
+    "port": 3306,
+    "database": "bcd",
+    "username": "root",
+    "password": ""
+  },
+  "userId": "zUsQeML464cteJCAWjWxS5Nt",
+  "modules": {
+    "bcd": {
+      "fields": {
+        "bc": {
+          "type": "String"
+        }
+      },
+      "apis": {
+        "post": true,
+        "get": true,
+        "getById": true,
+        "put": true,
+        "delete": true
+      },
+      "userId": "zUsQeML464cteJCAWjWxS5Nt"
+    }
+  },
+  "generatedModules": {
+    "generated": [
+      "bcd"
+    ]
+  },
+  "createdAt": "2025-07-14T17:06:03.683Z",
+  "updatedAt": "2025-07-14T17:06:13.942Z",
+  "settings": {}
+}

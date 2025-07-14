@@ -1,21 +1,22 @@
 import express from 'express';
-import {
-  getUserBackends,
-  getBackendById,
-  createBackend,
-  updateBackend,
-  deleteBackend,
+import { 
+  getUserBackends, 
+  getBackendById, 
+  createBackend, 
+  updateBackend, 
+  deleteBackend, 
   generateModuleForBackend,
   exportBackend,
+  migrateToUltraMinimal
 } from '../controllers/userBackendController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(protect);
+// Apply auth middleware to all routes
+router.use(authMiddleware);
 
-// Get all backends for the current user
+// Get all backends for current user
 router.get('/', getUserBackends);
 
 // Get a specific backend by ID
@@ -35,5 +36,8 @@ router.post('/:backendId/modules', generateModuleForBackend);
 
 // Export a backend as a ZIP file
 router.get('/:backendId/export', exportBackend);
+
+// Migrate backends to ultra-minimal format (admin only)
+router.post('/migrate-to-minimal', adminMiddleware, migrateToUltraMinimal);
 
 export default router; 

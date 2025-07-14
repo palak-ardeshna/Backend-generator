@@ -4,7 +4,7 @@ import path from 'path';
 import { exec } from 'child_process';
 import ApiModule from '../models/ApiModule.js';
 import { getPagination } from '../utils/pagination.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { authMiddleware } from '../middleware/authMiddleware.js';
 import { sequelize } from '../config/db.js';
 
 const router = express.Router();
@@ -15,7 +15,7 @@ const generatorScript = path.join(process.cwd(), 'generateCrud.js');
 const generatedModulesPath = path.join(process.cwd(), 'generatedModules.json');
 
 // GET all generated modules with pagination - filtered by user ID unless admin
-router.get('/', protect, async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
     const { limit, offset, page } = getPagination(req.query);
     
@@ -44,7 +44,7 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
-router.post('/', protect, async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   const { moduleName, fields, apis } = req.body;
   if (!moduleName || !fields || !Array.isArray(fields) || fields.length === 0) {
     return res.status(400).json({ message: 'Invalid input' });
@@ -137,7 +137,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // DELETE a module and all its related files
-router.delete('/:moduleName', protect, async (req, res) => {
+router.delete('/:moduleName', authMiddleware, async (req, res) => {
   const { moduleName } = req.params;
   
   try {

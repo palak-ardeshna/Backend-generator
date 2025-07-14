@@ -1,0 +1,15 @@
+{
+  "name": "abc",
+  "description": "acb",
+  "dbType": "mysql",
+  "dbConfig": {
+    "host": "localhost",
+    "port": 3306,
+    "database": "abc",
+    "username": "root",
+    "password": ""
+  },
+  "userId": "5W8MwqYjbIWn1vfz64RpgXpU",
+  "createdAt": "2025-07-14T16:58:56.473Z",
+  "updatedAt": "2025-07-14T16:58:56.473Z"
+}
