@@ -1,0 +1,54 @@
+{
+  "name": "hfd",
+  "description": "hfd",
+  "dbType": "mysql",
+  "dbConfig": {
+    "host": "localhost",
+    "port": 3306,
+    "database": "hfd",
+    "username": "root",
+    "password": ""
+  },
+  "userId": "d1R480iEBYguzzm3f0zMggYB",
+  "modules": {
+    "hfd": {
+      "fields": {
+        "hfd": {
+          "type": "String"
+        }
+      },
+      "apis": {
+        "post": true,
+        "get": true,
+        "getById": true,
+        "put": true,
+        "delete": true
+      },
+      "userId": "d1R480iEBYguzzm3f0zMggYB"
+    },
+    "hfddd": {
+      "fields": {
+        "hfdfdd": {
+          "type": "String"
+        }
+      },
+      "apis": {
+        "post": true,
+        "get": true,
+        "getById": true,
+        "put": true,
+        "delete": true
+      },
+      "userId": "d1R480iEBYguzzm3f0zMggYB"
+    }
+  },
+  "generatedModules": {
+    "generated": [
+      "hfd",
+      "hfddd"
+    ]
+  },
+  "createdAt": "2025-07-15T19:12:49.766Z",
+  "updatedAt": "2025-07-15T19:13:29.406Z",
+  "settings": {}
+}

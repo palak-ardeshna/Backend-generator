@@ -14,13 +14,24 @@ import ProfileAvatar from './ProfileAvatar';
 import './Sidebar.css';
 
 export default function Sidebar({ user, onLogout }) {
-  const menuItems = [
-    { path: '/dashboard', icon: <FaHome />, label: 'Dashboard' },
-    { path: '/api-generator', icon: <FaCode />, label: 'API Generator' },
-    { path: '/backends', icon: <FaServer />, label: 'My Backends' },
-    { path: '/users', icon: <FaUsers />, label: 'Users' },
-    { path: '/settings', icon: <FaCog />, label: 'Settings' },
-  ];
+  // Define menu items based on user role
+  const getMenuItems = () => {
+    // Common menu items for all users
+    const commonItems = [
+      { path: '/dashboard', icon: <FaHome />, label: 'Dashboard' },
+      { path: '/backends', icon: <FaServer />, label: 'My Backends' },
+    ];
+    
+    // Admin-only menu items
+    const adminItems = [
+      { path: '/api-generator', icon: <FaCode />, label: 'API Generator' },
+      { path: '/users', icon: <FaUsers />, label: 'Users' },
+      { path: '/settings', icon: <FaCog />, label: 'Settings' },
+    ];
+    
+    // Return all items for admin, only common items for regular users
+    return user?.isAdmin ? [...commonItems, ...adminItems] : commonItems;
+  };
 
   return (
     <aside className="sidebar">
@@ -36,7 +47,7 @@ export default function Sidebar({ user, onLogout }) {
       </div>
       
       <nav className="sidebar-nav">
-        {menuItems.map((item) => (
+        {getMenuItems().map((item) => (
           <NavLink 
             key={item.path}
             to={item.path}

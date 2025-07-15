@@ -43,9 +43,8 @@ export default function AppRoutes() {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     
-    // Get the last visited path from localStorage or default to dashboard
-    const lastPath = localStorage.getItem('lastPath') || '/dashboard';
-    navigate(lastPath);
+    // Navigate to dashboard by default
+    navigate('/dashboard');
   };
 
   // Save current path to localStorage when it changes
@@ -67,16 +66,20 @@ export default function AppRoutes() {
     );
   }
 
-  // If authenticated, show main app
+  // If authenticated, show main app with routes based on user role
   return (
     <MainLayout user={user} onLogout={handleLogout}>
       <Routes>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/api-generator" element={<ApiGenerator />} />
-        <Route path="/users" element={<Users />} />
+        {user.isAdmin && (
+          <>
+            <Route path="/api-generator" element={<ApiGenerator />} />
+            <Route path="/users" element={<Users />} />
+          </>
+        )}
         <Route path="/backends" element={<UserBackends />} />
         <Route path="/backends/:backendId" element={<BackendDetail />} />
-        <Route path="*" element={<Navigate to={localStorage.getItem('lastPath') || "/dashboard"} replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </MainLayout>
   );

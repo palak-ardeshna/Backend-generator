@@ -43,7 +43,7 @@ export const login = async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return sendError(res, { status: 401, message: 'Invalid password' });
     const token = jwt.sign({ id: user.id, email: user.email, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-    sendSuccess(res, { message: 'Login successful', data: { token, user: { id: user.id, username: user.username, name: user.name, email: user.email } } });
+    sendSuccess(res, { message: 'Login successful', data: { token, user} });
   } catch (e) {
     sendError(res, { message: 'Server error' });
   }
