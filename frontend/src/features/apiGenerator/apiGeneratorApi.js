@@ -75,6 +75,21 @@ export const apiGeneratorApi = createApi({
       }),
       invalidatesTags: (result, error, { backendId }) => [{ type: 'Backends', id: backendId }],
     }),
+    updateModuleInBackend: builder.mutation({
+      query: ({ backendId, moduleName, ...body }) => ({
+        url: `/user-backends/${backendId}/modules/${moduleName}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (result, error, { backendId }) => [{ type: 'Backends', id: backendId }],
+    }),
+    deleteModuleFromBackend: builder.mutation({
+      query: ({ backendId, moduleName }) => ({
+        url: `/user-backends/${backendId}/modules/${moduleName}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, { backendId }) => [{ type: 'Backends', id: backendId }],
+    }),
     exportBackend: builder.query({
       query: (backendId) => ({
         url: `/user-backends/${backendId}/export`,
@@ -94,5 +109,7 @@ export const {
   useUpdateBackendMutation,
   useDeleteBackendMutation,
   useGenerateModuleForBackendMutation,
+  useUpdateModuleInBackendMutation,
+  useDeleteModuleFromBackendMutation,
   useLazyExportBackendQuery
 } = apiGeneratorApi; 

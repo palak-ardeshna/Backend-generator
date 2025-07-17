@@ -1,0 +1,41 @@
+{
+  "name": "ASAs",
+  "description": "aSas",
+  "dbType": "mysql",
+  "dbConfig": {
+    "host": "localhost",
+    "port": 3306,
+    "database": "asdss",
+    "username": "root",
+    "password": ""
+  },
+  "userId": "d1R480iEBYguzzm3f0zMggYB",
+  "modules": {
+    "vcx": {
+      "fields": {
+        "cxcx": {
+          "type": "String"
+        },
+        "sdfgh": {
+          "type": "String"
+        }
+      },
+      "apis": {
+        "post": true,
+        "get": true,
+        "getById": true,
+        "put": true,
+        "delete": true
+      },
+      "userId": "d1R480iEBYguzzm3f0zMggYB"
+    }
+  },
+  "generatedModules": {
+    "generated": [
+      "vcx"
+    ]
+  },
+  "createdAt": "2025-07-17T16:48:57.672Z",
+  "updatedAt": "2025-07-17T17:24:08.664Z",
+  "settings": {}
+}

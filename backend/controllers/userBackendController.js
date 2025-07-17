@@ -1119,6 +1119,211 @@ export default ${moduleName};
   }
 };
 
+// Delete a module from a backend
+export const deleteModuleFromBackend = async (req, res) => {
+  try {
+    const { backendId, moduleName } = req.params;
+    
+    const backend = await UserBackend.findOne({
+      where: {
+        id: backendId,
+        ...(req.user.isAdmin ? {} : { userId: req.user.id }),
+      },
+    });
+    
+    if (!backend) {
+      return sendError(res, { 
+        status: 404, 
+        message: 'Backend not found or you do not have access' 
+      });
+    }
+    
+    // Synchronize database with file system before checking if module exists
+    await syncBackendWithFileSystem(backend);
+    
+    // Check if module exists
+    const generatedModules = backend.generatedModules?.generated || [];
+    if (!generatedModules.includes(moduleName)) {
+      return sendError(res, { 
+        status: 404, 
+        message: `Module ${moduleName} not found` 
+      });
+    }
+    
+    // Get the backend directory
+    const backendDir = await getBackendDir(backend.userId, backend.name);
+    
+    // Check if we're using the ultra-minimal format
+    const configPath = path.join(backendDir, 'backend-config.json');
+    let backendConfig;
+    
+    if (fs.existsSync(configPath)) {
+      // Read the single configuration file
+      backendConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      
+      // Remove module from modules
+      if (backendConfig.modules && backendConfig.modules[moduleName]) {
+        delete backendConfig.modules[moduleName];
+      }
+      
+      // Remove from generatedModules
+      if (backendConfig.generatedModules && backendConfig.generatedModules.generated) {
+        backendConfig.generatedModules.generated = backendConfig.generatedModules.generated.filter(
+          m => m !== moduleName
+        );
+      }
+      
+      backendConfig.updatedAt = new Date().toISOString();
+      
+      // Save the updated configuration
+      fs.writeFileSync(
+        path.join(backendDir, 'backend-config.json'),
+        JSON.stringify(backendConfig, null, 2)
+      );
+    } else {
+      // Legacy format - update backend object
+      const backendModules = backend.modules || {};
+      if (backendModules[moduleName]) {
+        delete backendModules[moduleName];
+      }
+      
+      backend.modules = backendModules;
+      
+      const backendGeneratedModules = backend.generatedModules || { generated: [] };
+      backendGeneratedModules.generated = backendGeneratedModules.generated.filter(
+        m => m !== moduleName
+      );
+      
+      backend.generatedModules = backendGeneratedModules;
+    }
+    
+    await backend.save();
+    
+    sendSuccess(res, {
+      message: `Module ${moduleName} deleted successfully`,
+    });
+  } catch (err) {
+    console.error('Error deleting module:', err);
+    sendError(res, { message: 'Failed to delete module', error: err.message });
+  }
+};
+
+// Update a module in a backend
+export const updateModuleInBackend = async (req, res) => {
+  try {
+    const { backendId, moduleName } = req.params;
+    
+    const backend = await UserBackend.findOne({
+      where: {
+        id: backendId,
+        ...(req.user.isAdmin ? {} : { userId: req.user.id }),
+      },
+    });
+    
+    if (!backend) {
+      return sendError(res, { 
+        status: 404, 
+        message: 'Backend not found or you do not have access' 
+      });
+    }
+    
+    // Synchronize database with file system before checking if module exists
+    await syncBackendWithFileSystem(backend);
+    
+    // Check if module exists
+    const generatedModules = backend.generatedModules?.generated || [];
+    if (!generatedModules.includes(moduleName)) {
+      return sendError(res, { 
+        status: 404, 
+        message: `Module ${moduleName} not found` 
+      });
+    }
+    
+    // Add moduleName to the request body before validation
+    const requestBody = {
+      ...req.body,
+      moduleName
+    };
+    
+    const { error, value } = moduleSchema.validate(requestBody);
+    
+    if (error) {
+      return sendError(res, { 
+        status: 400, 
+        message: 'Invalid input', 
+        error: error.message 
+      });
+    }
+    
+    const { fields, apis } = value;
+    
+    // Get the backend directory
+    const backendDir = await getBackendDir(backend.userId, backend.name);
+    
+    // Check if we're using the ultra-minimal format
+    const configPath = path.join(backendDir, 'backend-config.json');
+    let backendConfig;
+    
+    if (fs.existsSync(configPath)) {
+      // Read the single configuration file
+      backendConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      
+      // Build fields object for modules
+      const fieldsObj = {};
+      fields.forEach(f => {
+        fieldsObj[f.name] = { type: f.type };
+        if (f.unique) fieldsObj[f.name].unique = true;
+      });
+      
+      // Update the module
+      backendConfig.modules[moduleName] = { 
+        fields: fieldsObj, 
+        apis,
+        userId: req.user.id
+      };
+      
+      backendConfig.updatedAt = new Date().toISOString();
+      
+      // Save the updated configuration
+      fs.writeFileSync(
+        path.join(backendDir, 'backend-config.json'),
+        JSON.stringify(backendConfig, null, 2)
+      );
+    } else {
+      // Legacy format - update backend object
+      const backendModules = backend.modules || {};
+      
+      // Build fields object for modules
+      const fieldsObj = {};
+      fields.forEach(f => {
+        fieldsObj[f.name] = { type: f.type };
+        if (f.unique) fieldsObj[f.name].unique = true;
+      });
+      
+      backendModules[moduleName] = {
+        fields,
+        apis,
+      };
+      
+      backend.modules = backendModules;
+    }
+    
+    await backend.save();
+    
+    sendSuccess(res, {
+      message: `Module ${moduleName} updated successfully`,
+      data: {
+        moduleName,
+        fields,
+        apis,
+      },
+    });
+  } catch (err) {
+    console.error('Error updating module:', err);
+    sendError(res, { message: 'Failed to update module', error: err.message });
+  }
+};
+
 // Export a backend as a ZIP file
 export const exportBackend = async (req, res) => {
   try {
@@ -1147,23 +1352,15 @@ export const exportBackend = async (req, res) => {
       });
     }
     
-    // Create a temporary directory for the complete backend
-    const tempDir = path.join(process.cwd(), 'temp', `export-${backend.id}-${Date.now()}`);
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    
-    // Generate complete backend in the temporary directory
-    await generateCompleteBackend(backendDir, tempDir, backend);
-    
     // Create a ZIP archive
     const zipFileName = `${backend.name.toLowerCase().replace(/\s+/g, '-')}-backend.zip`;
-    const zipFilePath = path.join(process.cwd(), 'temp', zipFileName);
     
     // Create temp directory if it doesn't exist
     if (!fs.existsSync(path.join(process.cwd(), 'temp'))) {
       fs.mkdirSync(path.join(process.cwd(), 'temp'), { recursive: true });
     }
+    
+    const zipFilePath = path.join(process.cwd(), 'temp', zipFileName);
     
     // Create a write stream for the ZIP file
     const output = fs.createWriteStream(zipFilePath);
@@ -1174,8 +1371,470 @@ export const exportBackend = async (req, res) => {
     // Pipe the archive to the file
     archive.pipe(output);
     
-    // Add the temporary directory to the archive
-    archive.directory(tempDir, false);
+    // Check if we're using the ultra-minimal format
+    const configPath = path.join(backendDir, 'backend-config.json');
+    let backendConfig;
+    
+    if (fs.existsSync(configPath)) {
+      // Read the single configuration file
+      backendConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    } else {
+      // Legacy format - read from backend object
+      backendConfig = {
+        name: backend.name,
+        description: backend.description,
+        dbType: backend.dbType,
+        dbConfig: backend.dbConfig,
+        modules: backend.modules,
+        generatedModules: backend.generatedModules
+      };
+    }
+    
+    // Parse dbConfig if it's a string
+    let dbConfig = backendConfig.dbConfig;
+    if (typeof dbConfig === 'string') {
+      try {
+        dbConfig = JSON.parse(dbConfig);
+      } catch (err) {
+        console.error('Error parsing dbConfig:', err);
+        dbConfig = {};
+      }
+    }
+    
+    // Add configuration files directly to the archive
+    
+    // modules.json
+    archive.append(
+      JSON.stringify(backendConfig.modules || {}, null, 2),
+      { name: 'modules.json' }
+    );
+    
+    // generatedModules.json
+    archive.append(
+      JSON.stringify(backendConfig.generatedModules || { generated: [] }, null, 2),
+      { name: 'generatedModules.json' }
+    );
+    
+    // Generate a random JWT token
+    const generateRandomToken = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let token = '';
+      for (let i = 0; i < 32; i++) {
+        token += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return token;
+    };
+    
+    const jwtToken = generateRandomToken();
+    
+    // .env file
+    const envContent = `PORT=5000
+DB_HOST=${dbConfig?.host || 'localhost'}
+DB_USER=${dbConfig?.username || 'root'}
+DB_PASSWORD=${dbConfig?.password || ''}
+DB_NAME=${dbConfig?.database || backendConfig.name.toLowerCase().replace(/\s+/g, '_')}
+JWT_SECRET=${jwtToken}
+`;
+    
+    archive.append(envContent, { name: '.env' });
+    
+    // package.json
+    const packageJson = {
+      name: backendConfig.name.toLowerCase().replace(/\s+/g, '-'),
+      version: '1.0.0',
+      description: backendConfig.description || `Backend API for ${backendConfig.name}`,
+      main: 'index.js',
+      type: 'module',
+      scripts: {
+        start: 'node index.js',
+        dev: 'nodemon index.js',
+      },
+      dependencies: {
+        express: '^4.18.2',
+        cors: '^2.8.5',
+        'dotenv': '^16.3.1',
+        'joi': '^17.9.2',
+        'sequelize': '^6.32.1',
+        [backendConfig.dbType === 'mysql' ? 'mysql2' : backendConfig.dbType]: '^3.6.0',
+        'bcryptjs': '^2.4.3',
+        'jsonwebtoken': '^9.0.1',
+      },
+      devDependencies: {
+        'nodemon': '^3.0.1',
+      },
+    };
+    
+    archive.append(
+      JSON.stringify(packageJson, null, 2),
+      { name: 'package.json' }
+    );
+    
+    // Create config directory and db.js
+    const dbConfigContent = `import { Sequelize } from 'sequelize';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const sequelize = new Sequelize(
+  process.env.DB_NAME || '${dbConfig?.database || backendConfig.name.toLowerCase().replace(/\s+/g, '_')}',
+  process.env.DB_USER || '${dbConfig?.username || 'root'}',
+  process.env.DB_PASSWORD || '${dbConfig?.password || ''}',
+  {
+    host: process.env.DB_HOST || '${dbConfig?.host || 'localhost'}',
+    dialect: '${backendConfig.dbType === 'postgres' ? 'postgres' : 'mysql'}',
+    logging: false,
+  }
+);
+
+const connectDB = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('Database connection established successfully');
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+    process.exit(1);
+  }
+};
+
+export { sequelize, connectDB };
+`;
+    
+    archive.append(dbConfigContent, { name: 'config/db.js' });
+    
+    // Add BaseModel.js
+    const baseModelContent = `import { Model, DataTypes } from 'sequelize';
+import { sequelize } from '../config/db.js';
+
+class BaseModel extends Model {
+  static init(attributes, options = {}) {
+    return super.init(
+      {
+        id: {
+          type: DataTypes.STRING,
+          primaryKey: true,
+          allowNull: false,
+        },
+        ...attributes,
+        createdAt: {
+          type: DataTypes.DATE,
+          defaultValue: DataTypes.NOW,
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          defaultValue: DataTypes.NOW,
+        },
+      },
+      {
+        sequelize,
+        ...options,
+      }
+    );
+  }
+}
+
+export default BaseModel;
+`;
+    
+    archive.append(baseModelContent, { name: 'models/BaseModel.js' });
+    
+    // Add model files from the backend directory
+    const modelsDir = path.join(backendDir, 'models');
+    if (fs.existsSync(modelsDir)) {
+      const modelFiles = fs.readdirSync(modelsDir);
+      for (const file of modelFiles) {
+        if (file !== 'BaseModel.js' && file.endsWith('.js')) {
+          const filePath = path.join(modelsDir, file);
+          const fileContent = fs.readFileSync(filePath, 'utf-8');
+          archive.append(fileContent, { name: `models/${file}` });
+        }
+      }
+    }
+    
+    // Add utility files
+    const utilsFiles = [
+      'generateId.js',
+      'pagination.js',
+      'responseHandler.js',
+    ];
+    
+    utilsFiles.forEach(file => {
+      const sourcePath = path.join(process.cwd(), 'utils', file);
+      if (fs.existsSync(sourcePath)) {
+        const fileContent = fs.readFileSync(sourcePath, 'utf-8');
+        archive.append(fileContent, { name: `utils/${file}` });
+      }
+    });
+    
+    // Generate index.js
+    const indexContent = `import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { connectDB } from './config/db.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Load environment variables
+dotenv.config();
+
+// Create Express app
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Connect to database
+connectDB();
+
+// Dynamically import all models
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const modelsDir = path.join(__dirname, 'models');
+
+// Array to store model information
+const models = [];
+
+// Read model files
+if (fs.existsSync(modelsDir)) {
+  const files = fs.readdirSync(modelsDir);
+  
+  for (const file of files) {
+    if (file !== 'BaseModel.js' && file.endsWith('.js')) {
+      const modelName = file.replace('.js', '');
+      try {
+        // Import the model dynamically
+        const modelModule = await import(\`./models/\${file}\`);
+        const Model = modelModule.default;
+        
+        // Create routes for the model
+        const router = express.Router();
+        
+        // CRUD operations
+        router.get('/', async (req, res) => {
+          try {
+            const items = await Model.findAll();
+            res.json(items);
+          } catch (error) {
+            res.status(500).json({ message: error.message });
+          }
+        });
+        
+        router.get('/:id', async (req, res) => {
+          try {
+            const item = await Model.findByPk(req.params.id);
+            if (!item) {
+              return res.status(404).json({ message: 'Item not found' });
+            }
+            res.json(item);
+          } catch (error) {
+            res.status(500).json({ message: error.message });
+          }
+        });
+        
+        router.post('/', async (req, res) => {
+          try {
+            const item = await Model.create(req.body);
+            res.status(201).json(item);
+          } catch (error) {
+            res.status(400).json({ message: error.message });
+          }
+        });
+        
+        router.put('/:id', async (req, res) => {
+          try {
+            const item = await Model.findByPk(req.params.id);
+            if (!item) {
+              return res.status(404).json({ message: 'Item not found' });
+            }
+            await item.update(req.body);
+            res.json(item);
+          } catch (error) {
+            res.status(400).json({ message: error.message });
+          }
+        });
+        
+        router.delete('/:id', async (req, res) => {
+          try {
+            const item = await Model.findByPk(req.params.id);
+            if (!item) {
+              return res.status(404).json({ message: 'Item not found' });
+            }
+            await item.destroy();
+            res.json({ message: 'Item deleted' });
+          } catch (error) {
+            res.status(500).json({ message: error.message });
+          }
+        });
+        
+        // Register the routes
+        app.use(\`/api/\${modelName.toLowerCase()}\`, router);
+        
+        // Add to models array
+        models.push({
+          name: modelName,
+          endpoints: [
+            { method: 'GET', path: \`/api/\${modelName.toLowerCase()}\` },
+            { method: 'GET', path: \`/api/\${modelName.toLowerCase()}/:id\` },
+            { method: 'POST', path: \`/api/\${modelName.toLowerCase()}\` },
+            { method: 'PUT', path: \`/api/\${modelName.toLowerCase()}/:id\` },
+            { method: 'DELETE', path: \`/api/\${modelName.toLowerCase()}/:id\` },
+          ]
+        });
+        
+        console.log(\`Registered routes for model: \${modelName}\`);
+      } catch (error) {
+        console.error(\`Error loading model \${modelName}:\`, error);
+      }
+    }
+  }
+}
+
+// API info endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'API is running',
+    models,
+    version: '1.0.0'
+  });
+});
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(\`Server running on port \${PORT}\`);
+});
+`;
+    
+    archive.append(indexContent, { name: 'index.js' });
+    
+    // Generate controller files for each model
+    const generatedModules = backendConfig.generatedModules?.generated || [];
+    const modules = backendConfig.modules || {};
+    
+    for (const moduleName of generatedModules) {
+      const moduleConfig = modules[moduleName];
+      if (moduleConfig) {
+        const controllerContent = `import ${moduleName} from '../models/${moduleName}.js';
+import { sendSuccess, sendError } from '../utils/responseHandler.js';
+import { getPagination } from '../utils/pagination.js';
+
+// Get all items with pagination
+export const getAll${moduleName}s = async (req, res) => {
+  try {
+    const { page, size } = req.query;
+    const { limit, offset } = getPagination(page, size);
+    
+    const items = await ${moduleName}.findAndCountAll({
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+    });
+    
+    sendSuccess(res, {
+      totalItems: items.count,
+      items: items.rows,
+      totalPages: Math.ceil(items.count / limit),
+      currentPage: page ? +page : 0,
+    });
+  } catch (err) {
+    sendError(res, { message: err.message });
+  }
+};
+
+// Get a single item by ID
+export const get${moduleName}ById = async (req, res) => {
+  try {
+    const item = await ${moduleName}.findByPk(req.params.id);
+    
+    if (!item) {
+      return sendError(res, { status: 404, message: 'Item not found' });
+    }
+    
+    sendSuccess(res, item);
+  } catch (err) {
+    sendError(res, { message: err.message });
+  }
+};
+
+// Create a new item
+export const create${moduleName} = async (req, res) => {
+  try {
+    const item = await ${moduleName}.create(req.body);
+    sendSuccess(res, item, 201);
+  } catch (err) {
+    sendError(res, { message: err.message });
+  }
+};
+
+// Update an item
+export const update${moduleName} = async (req, res) => {
+  try {
+    const item = await ${moduleName}.findByPk(req.params.id);
+    
+    if (!item) {
+      return sendError(res, { status: 404, message: 'Item not found' });
+    }
+    
+    await item.update(req.body);
+    sendSuccess(res, item);
+  } catch (err) {
+    sendError(res, { message: err.message });
+  }
+};
+
+// Delete an item
+export const delete${moduleName} = async (req, res) => {
+  try {
+    const item = await ${moduleName}.findByPk(req.params.id);
+    
+    if (!item) {
+      return sendError(res, { status: 404, message: 'Item not found' });
+    }
+    
+    await item.destroy();
+    sendSuccess(res, { message: 'Item deleted successfully' });
+  } catch (err) {
+    sendError(res, { message: err.message });
+  }
+};
+`;
+        
+        archive.append(controllerContent, { name: `controllers/${moduleName.toLowerCase()}Controller.js` });
+        
+        // Create route file for this module
+        const routeContent = `import express from 'express';
+import {
+  getAll${moduleName}s,
+  get${moduleName}ById,
+  create${moduleName},
+  update${moduleName},
+  delete${moduleName}
+} from '../controllers/${moduleName.toLowerCase()}Controller.js';
+
+const router = express.Router();
+
+// Get all items
+router.get('/', getAll${moduleName}s);
+
+// Get a single item
+router.get('/:id', get${moduleName}ById);
+
+// Create a new item
+router.post('/', create${moduleName});
+
+// Update an item
+router.put('/:id', update${moduleName});
+
+// Delete an item
+router.delete('/:id', delete${moduleName});
+
+export default router;
+`;
+        
+        archive.append(routeContent, { name: `routes/${moduleName.toLowerCase()}Routes.js` });
+      }
+    }
     
     // Finalize the archive
     await archive.finalize();
@@ -1193,7 +1852,6 @@ export const exportBackend = async (req, res) => {
       // Delete the temporary files after sending
       fileStream.on('close', () => {
         fs.unlinkSync(zipFilePath);
-        fs.rmSync(tempDir, { recursive: true, force: true });
       });
     });
   } catch (err) {

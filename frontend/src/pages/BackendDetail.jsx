@@ -4,9 +4,11 @@ import {
   useGetBackendByIdQuery,
   useGenerateModuleForBackendMutation,
   useUpdateBackendMutation,
-  useLazyExportBackendQuery
+  useLazyExportBackendQuery,
+  useDeleteModuleFromBackendMutation,
+  useUpdateModuleInBackendMutation
 } from '../features/apiGenerator/apiGeneratorApi';
-import { FaPlus, FaMinus, FaCode, FaTrash, FaCheck, FaDownload, FaArrowLeft } from 'react-icons/fa';
+import { FaPlus, FaMinus, FaCode, FaTrash, FaCheck, FaDownload, FaArrowLeft, FaEdit } from 'react-icons/fa';
 import './BackendDetail.css';
 
 const FIELD_TYPES = [
@@ -40,8 +42,12 @@ export default function BackendDetail() {
   const [generateModule, { isLoading: isGenerating }] = useGenerateModuleForBackendMutation();
   const [updateBackend, { isLoading: isUpdating }] = useUpdateBackendMutation();
   const [exportBackend, { isLoading: isExporting }] = useLazyExportBackendQuery();
+  const [deleteModule, { isLoading: isDeleting }] = useDeleteModuleFromBackendMutation();
+  const [updateModule, { isLoading: isUpdatingModule }] = useUpdateModuleInBackendMutation();
   
   const [showModuleForm, setShowModuleForm] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentModuleName, setCurrentModuleName] = useState('');
   const [moduleFormData, setModuleFormData] = useState({
     moduleName: '',
     fields: [
@@ -113,14 +119,28 @@ export default function BackendDetail() {
     }
     
     try {
-      await generateModule({
-        backendId,
-        ...moduleFormData,
-      }).unwrap();
+      if (isEditMode) {
+        await updateModule({
+          backendId,
+          moduleName: currentModuleName,
+          fields: moduleFormData.fields,
+          apis: moduleFormData.apis,
+        }).unwrap();
+        
+        setMessage(`Module ${currentModuleName} updated successfully!`);
+      } else {
+        await generateModule({
+          backendId,
+          ...moduleFormData,
+        }).unwrap();
+        
+        setMessage(`Module ${moduleFormData.moduleName} generated successfully!`);
+      }
       
-      setMessage(`Module ${moduleFormData.moduleName} generated successfully!`);
       setMessageType('success');
       setShowModuleForm(false);
+      setIsEditMode(false);
+      setCurrentModuleName('');
       setModuleFormData({
         moduleName: '',
         fields: [
@@ -130,9 +150,50 @@ export default function BackendDetail() {
       });
       refetch();
     } catch (err) {
-      setMessage(err?.data?.message || 'Error generating module');
+      setMessage(err?.data?.message || (isEditMode ? 'Error updating module' : 'Error generating module'));
       setMessageType('error');
     }
+  };
+  
+  const handleDeleteModule = async (moduleName) => {
+    if (window.confirm(`Are you sure you want to delete the module "${moduleName}"?`)) {
+      try {
+        await deleteModule({
+          backendId,
+          moduleName,
+        }).unwrap();
+        
+        setMessage(`Module ${moduleName} deleted successfully!`);
+        setMessageType('success');
+        refetch();
+      } catch (err) {
+        setMessage(err?.data?.message || 'Error deleting module');
+        setMessageType('error');
+      }
+    }
+  };
+  
+  const handleEditModule = (moduleName) => {
+    if (!backendData || !backendData.data || !backendData.data.modules) return;
+    
+    const moduleData = backendData.data.modules[moduleName];
+    if (!moduleData) return;
+    
+    // Convert fields from object to array format
+    const fieldsArray = Object.entries(moduleData.fields).map(([name, config]) => ({
+      name,
+      type: config.type || 'String',
+      unique: !!config.unique,
+    }));
+    
+    setIsEditMode(true);
+    setCurrentModuleName(moduleName);
+    setModuleFormData({
+      moduleName,
+      fields: fieldsArray.length > 0 ? fieldsArray : [{ name: '', type: 'String', unique: false }],
+      apis: moduleData.apis || DEFAULT_APIS,
+    });
+    setShowModuleForm(true);
   };
   
   const handleExportBackend = async () => {
@@ -220,9 +281,20 @@ export default function BackendDetail() {
             <h2>API Modules</h2>
             <button
               className="create-module-button"
-              onClick={() => setShowModuleForm(!showModuleForm)}
+              onClick={() => {
+                setIsEditMode(false);
+                setCurrentModuleName('');
+                setModuleFormData({
+                  moduleName: '',
+                  fields: [
+                    { name: '', type: 'String', unique: false },
+                  ],
+                  apis: DEFAULT_APIS,
+                });
+                setShowModuleForm(!showModuleForm);
+              }}
             >
-              {showModuleForm ? 'Cancel' : <><FaPlus /> Create New Module</>}
+              {showModuleForm && !isEditMode ? 'Cancel' : <><FaPlus /> Create New Module</>}
             </button>
           </div>
           
@@ -234,7 +306,7 @@ export default function BackendDetail() {
           
           {showModuleForm && (
             <div className="module-form-card">
-              <h3>Create New Module</h3>
+              <h3>{isEditMode ? `Edit Module: ${currentModuleName}` : 'Create New Module'}</h3>
               <form onSubmit={handleSubmit} className="module-form">
                 <div className="form-group">
                   <label htmlFor="moduleName">Module Name:</label>
@@ -245,6 +317,7 @@ export default function BackendDetail() {
                     onChange={handleInputChange}
                     placeholder="Enter module name (e.g. Product, User, Order)"
                     required
+                    disabled={isEditMode}
                   />
                 </div>
                 
@@ -328,76 +401,72 @@ export default function BackendDetail() {
           )}
           
           <div className="modules-list">
-            {generatedModules.length > 0 ? (
+            {generatedModules.length === 0 ? (
+              <div className="no-modules">No modules generated yet. Create your first module!</div>
+            ) : (
               generatedModules.map((moduleName) => {
                 const moduleData = backend.modules?.[moduleName] || {};
+                const fields = moduleData.fields || {};
                 const apis = moduleData.apis || {};
                 
                 return (
                   <div key={moduleName} className="module-card">
                     <div className="module-header">
                       <h3>{moduleName}</h3>
-                      <div className="api-method-chips">
-                        {Object.entries(apis).filter(([k, v]) => v).map(([k]) => (
-                          <span 
-                            key={k} 
-                            className="api-method-chip"
-                            style={{ backgroundColor: API_LABELS[k]?.color }}
-                          >
-                            {API_LABELS[k]?.method || k.toUpperCase()}
-                          </span>
-                        ))}
+                      <div className="module-actions">
+                        <button
+                          className="action-button edit-button"
+                          onClick={() => handleEditModule(moduleName)}
+                          disabled={isUpdatingModule}
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          className="action-button delete-button"
+                          onClick={() => handleDeleteModule(moduleName)}
+                          disabled={isDeleting}
+                        >
+                          <FaTrash />
+                        </button>
                       </div>
                     </div>
                     
-                    <div className="module-fields">
-                      <h4>Fields</h4>
-                      <div className="fields-list">
-                        {moduleData.fields && (
-                          Array.isArray(moduleData.fields)
-                            ? moduleData.fields.map((field, idx) => (
-                                <div key={idx} className="field-item">
-                                  <span className="field-name">{field.name}</span>
-                                  <span className="field-type">{field.type}</span>
-                                  {field.unique && <span className="field-unique">Unique</span>}
-                                </div>
-                              ))
-                            : Object.entries(moduleData.fields).map(([fieldName, fieldData], idx) => (
-                                <div key={idx} className="field-item">
-                                  <span className="field-name">{fieldName}</span>
-                                  <span className="field-type">{fieldData.type}</span>
-                                  {fieldData.unique && <span className="field-unique">Unique</span>}
-                                </div>
-                              ))
-                        )}
+                    <div className="module-content">
+                      <div className="module-fields">
+                        <h4>Fields</h4>
+                        <ul>
+                          {Object.entries(fields).map(([fieldName, fieldConfig]) => (
+                            <li key={fieldName}>
+                              <strong>{fieldName}</strong>: {fieldConfig.type}
+                              {fieldConfig.unique && <span className="unique-badge">Unique</span>}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
-                    
-                    <div className="module-endpoints">
-                      <h4>API Endpoints</h4>
-                      <div className="endpoints-list">
-                        {Object.entries(apis).filter(([k, v]) => v).map(([k]) => (
-                          <div key={k} className="endpoint-item">
-                            <span 
-                              className="endpoint-method"
-                              style={{ backgroundColor: API_LABELS[k]?.color }}
-                            >
-                              {API_LABELS[k]?.method || k.toUpperCase()}
-                            </span>
-                            <span className="endpoint-path">{API_LABELS[k]?.path(moduleName) || ''}</span>
-                          </div>
-                        ))}
+                      
+                      <div className="module-apis">
+                        <h4>API Endpoints</h4>
+                        <div className="api-list">
+                          {Object.entries(API_LABELS).map(([key, { method, path, color }]) => {
+                            const isEnabled = apis[key] !== false;
+                            return (
+                              <div
+                                key={key}
+                                className={`api-item ${isEnabled ? 'enabled' : 'disabled'}`}
+                              >
+                                <span className="api-method" style={{ backgroundColor: isEnabled ? color : '#ccc' }}>
+                                  {method}
+                                </span>
+                                <span className="api-path">{path(moduleName)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })
-            ) : (
-              <div className="empty-state">
-                <FaCode size={48} />
-                <p>No modules generated yet.</p>
-                <p>Use the "Create New Module" button to generate your first API module.</p>
-              </div>
             )}
           </div>
         </div>

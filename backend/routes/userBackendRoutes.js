@@ -7,7 +7,9 @@ import {
   deleteBackend, 
   generateModuleForBackend,
   exportBackend,
-  migrateToUltraMinimal
+  migrateToUltraMinimal,
+  deleteModuleFromBackend,
+  updateModuleInBackend
 } from '../controllers/userBackendController.js';
 import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware.js';
 
@@ -33,6 +35,12 @@ router.delete('/:backendId', deleteBackend);
 
 // Generate a module for a specific backend
 router.post('/:backendId/modules', generateModuleForBackend);
+
+// Update a module in a specific backend
+router.put('/:backendId/modules/:moduleName', updateModuleInBackend);
+
+// Delete a module from a specific backend
+router.delete('/:backendId/modules/:moduleName', deleteModuleFromBackend);
 
 // Export a backend as a ZIP file
 router.get('/:backendId/export', exportBackend);
